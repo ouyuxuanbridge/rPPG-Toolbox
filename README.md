@@ -6,6 +6,8 @@ STEP2: `conda activate rppg-toolbox`
 
 STEP3: `pip install -r requirements.txt` 
 
+Note1: Check the product name of your GPU before setup. If your GPU is NVIDIA GeForce RTX 3090, then you should modify setup.sh and change cudatoolkit version to 11.3.1.
+
 # Training on PURE and testing on UBFC with TSCAN 
 
 STEP1: Download the PURE raw data by asking the [paper authors](https://www.tu-ilmenau.de/universitaet/fakultaeten/fakultaet-informatik-und-automatisierung/profil/institute-und-fachgebiete/institut-fuer-technische-informatik-und-ingenieurinformatik/fachgebiet-neuroinformatik-und-kognitive-robotik/data-sets-code/pulse-rate-detection-dataset-pure).
