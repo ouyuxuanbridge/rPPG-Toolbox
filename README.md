@@ -6,7 +6,7 @@ STEP2: `conda activate rppg-toolbox`
 
 STEP3: `pip install -r requirements.txt` 
 
-Note1: Check the product name of your GPU before setup. If your GPU is NVIDIA GeForce RTX 3090, then you should modify setup.sh and change cudatoolkit version to 11.3.1.
+Note: Check the product name of your GPU before setup. If your GPU is NVIDIA GeForce RTX 3090, then you should modify setup.sh and change cudatoolkit version to 11.3.1.
 
 # Training on PURE and testing on UBFC with TSCAN 
 
