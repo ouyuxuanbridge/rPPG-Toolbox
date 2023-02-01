@@ -179,7 +179,7 @@ def _shear_y_impl(pil_img, level):
     A PIL Image that has had ShearX applied to it.
   """
     level = float_parameter(level, min_max_vals.shear.max)
-    if random.random() <0.5:
+    if random.random()>0.5:
         level = -level
 
     return pil_img.transform(pil_img.size, Image.AFFINE, (1, 0, 0, level, 1, 0))
@@ -202,7 +202,7 @@ def _translate_y_impl(pil_img, level):
     A PIL Image that has had TranslateY applied to it.
   """
     level = int_parameter(level, min_max_vals.translate.max)
-    if random.random() <0.5:
+    if random.random()>0.5:
         level = -level
 
     return pil_img.transform(pil_img.size, Image.AFFINE, (1, 0, 0, 0, 1, level))
@@ -225,8 +225,9 @@ def _shear_x_impl(pil_img, level):
     A PIL Image that has had ShearX applied to it.
   """
     level = float_parameter(level, min_max_vals.shear.max)
-    if random.random() <0.5:
+    if random.random()>0.5:
         level = -level
+    #print(level)
 
     return pil_img.transform(pil_img.size, Image.AFFINE, (1, level, 0, 0, 1, 0))
 
@@ -249,9 +250,8 @@ def _translate_x_impl(pil_img, level):
     A PIL Image that has had TranslateX applied to it.
   """
     level = int_parameter(level, min_max_vals.translate.max)
-    if random.random() <0.5:
+    if random.random()>0.5:
         level = -level
-
     return pil_img.transform(pil_img.size, Image.AFFINE, (1, 0, level, 0, 1, 0))
 
 
@@ -259,8 +259,8 @@ translate_x = TransformT('TranslateX', _translate_x_impl)
 
 def _rotate_impl(pil_img, level):
     """Rotates `pil_img` from -30 to 30 degrees depending on `level`."""
-    degrees = int_parameter(level, min_max_vals.rotate.max)
-    if random.random() <0.5:
+    degrees = int_parameter(level,min_max_vals.rotate.max)
+    if random.random()>0.5:
         degrees = -degrees
     #print(degrees)
 
@@ -281,7 +281,6 @@ def CutoutDefault(img, v):  # [0, 60] => percentage: [0, 0.2]
 
     #print("v")
     #print(v)
-    degrees = int_parameter(level, min_max_vals.rotate.max)
     if v <= 0:
         return img
     w, h = img.size
@@ -303,7 +302,7 @@ def RandomeraseDefault(img, v):  # [0, 60] => percentage: [0, 0.2]
     # assert 0 <= v <= 20
     #print("v")
     #print(v)
-    #v=5
+    v=7
 
 
     if v <= 0:

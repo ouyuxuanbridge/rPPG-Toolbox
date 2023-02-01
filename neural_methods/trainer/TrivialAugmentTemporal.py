@@ -43,7 +43,7 @@ min_max_vals = MinMaxVals(
 min_max_vals = MinMaxVals(
     
     gaussianlabel=MinMax(0, 0.50),
-    labelwarping=MinMax(0.25, 0.75),
+    labelwarping=MinMax(0, 1),
     scaling = MinMax(0.75,1.25),
     lowfreqnoisemagnitude= MinMax(0.01,0.5),
     lowfreqnoiseomega=MinMax(0.01,0.2),
@@ -79,8 +79,6 @@ def float_parameter2(level, minval,maxval):
     #print(maxval-minval)
     #print(1+PARAMETER_MAX)
     return float((level) * (maxval-minval) / (1+PARAMETER_MAX) +minval)
-
-
 def float_parameter3(level, minval,maxval):
     return float((level) * (maxval-minval) / (PARAMETER_MAX) +minval)
 
@@ -166,15 +164,12 @@ reverse =  TransformT('Reverse', _reverse_impl)
 
 def _gaussianlabel_impl(data_numpy,label_numpy,level):
     """Rotates `pil_img` from -30 to 30 degrees depending on `level`."""
-    #var = float_parameter(level, min_max_vals.gaussianlabel.max)
+    #var = float_parameter2(level, min_max_vals.gaussianlabel.min,min_max_vals.gaussianlabel.max)
     #print(var)
-    '''
-    if random.random () >0.5:
-        #var = 0.5
-        var = float_parameter2(level, min_max_vals.gaussianlabel.min,min_max_vals.gaussianlabel.max)
-    else:
-    '''
+    
     var = 0.5
+        #var = float_parameter2(level, min_max_vals.gaussianlabel.min,min_max_vals.gaussianlabel.max)
+    
     label_numpy = label_numpy+(var ** 0.5) * np.random.randn(4,180)
 
     return data_numpy, label_numpy
@@ -202,8 +197,8 @@ def _labelwarping_impl(data_numpy,label_numpy,level):
     # print("ls")
     # print(label_numpy.shape)
 
-    sigma = float_parameter3(level,min_max_vals.labelwarping.min, min_max_vals.labelwarping.max)
-    #print(sigma)
+    #sigma = float_parameter2(level, min_max_vals.labelwarping.min,min_max_vals.labelwarping.max)
+    sigma = 1
     #print(sigma)
     label_numpy = magnitude_warp(label_numpy.reshape(1,720,1),sigma).reshape(4,180)
 
@@ -212,7 +207,7 @@ def _labelwarping_impl(data_numpy,label_numpy,level):
 labelwarping =  TransformT('LabelWarping', _labelwarping_impl)
 def _scaling_impl(data_numpy,label_numpy,level):
     scale = float_parameter3(level, min_max_vals.scaling.min,min_max_vals.scaling.max)
-    #print(scale)
+    #scale =1 
     label_numpy = label_numpy*scale
     return data_numpy, label_numpy
 scaling = TransformT('Scaling', _scaling_impl)
@@ -230,6 +225,29 @@ def _lowfreqnoise_impl(data_numpy,label_numpy,level):
     label_numpy = label_numpy+func.reshape(4,180)
     return data_numpy, label_numpy
 
+def findop(op):
+    if op == 'translate_x':
+        return translate_x;
+    elif op == 'translate_y':
+        return translate_y;
+    elif op == 'shear_x':
+        return shear_x;
+    elif op == 'shear_y':
+        return shear_y;
+    elif op == 'rotate':
+        return rotate;
+    elif op == 'flip_lr':
+        return flip_lr;
+    elif op == 'gaussianlabel':
+        return gaussianlabel;
+    elif op == 'lowfreqnoise':
+        return lowfreqnoise;
+    elif op == 'videonoise':
+        return videonoise;
+    else:
+        print(op)
+        import sys
+        sys.exit()
 lowfreqnoise = TransformT('Lowfreqnoie', _lowfreqnoise_impl)
 #all_v1
 ALL_TEMPORAL_TRANSFORMS = [
@@ -250,13 +268,20 @@ POOL = [
 PARAMETER_MAX = 4
 
 class TrivialAugmentTemporal:
-    def __init__(self):
+    def __init__(self, op1, op2 ):
 
 
-        self.op = randomerase
-        self.level = random.randint(0, PARAMETER_MAX)
-        self.prob = random.random()
-        #print(self.prob)
+
+        self.op1 = findop(op1)
+        self.op2 = findop(op2)
+        #print(self.op1)
+        #print(self.op2)
+
+        self.level1 = random.randint(0, PARAMETER_MAX)
+        self.level2 = random.randint(0, PARAMETER_MAX)
+        self.prob1 = random.random()
+        self.prob2 = random.random()
+        
 
 
     def __call__(self, data_numpy,batch_label):
@@ -268,27 +293,58 @@ class TrivialAugmentTemporal:
 
 
 
-        if self.prob>0.5:
-            if self.op in ALL_TEMPORAL_TRANSFORMS:
+        if self.prob1>0.5:
+            #print("prob1")
+            if self.op1 in ALL_TEMPORAL_TRANSFORMS:
 
-                data_numpy,batch_label =self.op.pil_transformer_temporal(1., self.level)(data_numpy,batch_label)
+                data_numpy,batch_label =self.op1.pil_transformer_temporal(1., self.level1)(data_numpy,batch_label)
 
 
 
             else:
-                labelperbatch.append(batch_label)
+
 
                 for sample_idx in range(N):
                     datapersample = []
                     for frame_idx in range(D):
-                        if self.op == videonoise:
-                            datapersample.append( self.op.pil_transformer(1., self.level)(data_numpy[sample_idx,frame_idx,:,:,:]))
+                        if self.op1 == videonoise:
+                            datapersample.append( self.op1.pil_transformer(1., self.level1)(data_numpy[sample_idx,frame_idx,:,:,:]))
                         else:
 
                             data_numpy_frame = data_numpy[sample_idx,frame_idx,:,:,:] * 255
                             data_numpy_frame = data_numpy_frame.astype(np.uint8)
                             img = PIL.Image.fromarray(data_numpy_frame)
-                            img = self.op.pil_transformer(1., self.level)(img)
+                            img = self.op1.pil_transformer(1., self.level1)(img)
+                            data_numpy_frame = np.asarray(img)
+                            data_numpy_frame = data_numpy_frame / 255
+                            datapersample.append(data_numpy_frame)
+                    dataperbatch.append(datapersample)
+                data_numpy = np.array(dataperbatch)
+
+        if self.prob2>0.5:
+            dataperbatch = []
+            labelperbatch = []
+            #print("prob2")
+            if self.op2 in ALL_TEMPORAL_TRANSFORMS:
+
+                data_numpy,batch_label =self.op2.pil_transformer_temporal(1., self.level2)(data_numpy,batch_label)
+
+
+
+            else:
+
+
+                for sample_idx in range(N):
+                    datapersample = []
+                    for frame_idx in range(D):
+                        if self.op2 == videonoise:
+                            datapersample.append( self.op2.pil_transformer(1., self.level2)(data_numpy[sample_idx,frame_idx,:,:,:]))
+                        else:
+
+                            data_numpy_frame = data_numpy[sample_idx,frame_idx,:,:,:] * 255
+                            data_numpy_frame = data_numpy_frame.astype(np.uint8)
+                            img = PIL.Image.fromarray(data_numpy_frame)
+                            img = self.op2.pil_transformer(1., self.level2)(img)
                             data_numpy_frame = np.asarray(img)
                             data_numpy_frame = data_numpy_frame / 255
                             datapersample.append(data_numpy_frame)
@@ -300,5 +356,5 @@ class TrivialAugmentTemporal:
 
 
 
-        return data_numpy, batch_label, self.op, self.level
+        return data_numpy, batch_label, self.op1, self.level1
 

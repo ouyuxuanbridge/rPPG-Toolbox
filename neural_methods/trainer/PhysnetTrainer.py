@@ -11,10 +11,7 @@ from neural_methods.model.PhysNet import PhysNet_padding_Encoder_Decoder_MAX
 from neural_methods.trainer.BaseTrainer import BaseTrainer
 from torch.autograd import Variable
 from tqdm import tqdm
-from neural_methods.trainer.TrivialAugmentTemporal128 import TrivialAugmentTemporal128
-from neural_methods.trainer.TrivialAugmentTemporal128 import *
-from neural_methods.trainer.TrivialAugment128   import TrivialAugment128
-from neural_methods.trainer.TrivialAugment128   import *
+
 
 class PhysnetTrainer(BaseTrainer):
 
@@ -49,17 +46,8 @@ class PhysnetTrainer(BaseTrainer):
             tbar = tqdm(data_loader["train"], ncols=80)
             for idx, batch in enumerate(tbar):
                 tbar.set_description("Train epoch %s" % epoch)
-                #print("batch0")
-                #print(batch[0].shape)
-                #print(batch[1].shape)
-                #print(type(batch[0]))
-                #np.save(batch[0][0,:,:,:,:],"physnetvideo.npy")
-                #import sys
-                #sys.exit()
-                batch[0], batch[1] =self.augmentation(batch[0],batch[1])
                 rPPG, x_visual, x_visual3232, x_visual1616 = self.model(
                     batch[0].to(torch.float32).to(self.device))
-
                 BVP_label = batch[1].to(
                     torch.float32).to(self.device)
                 rPPG = (rPPG - torch.mean(rPPG)) / torch.std(rPPG)  # normalize
@@ -157,53 +145,3 @@ class PhysnetTrainer(BaseTrainer):
             self.model_dir, self.model_file_name + '_Epoch' + str(index) + '.pth')
         torch.save(self.model.state_dict(), model_path)
         print('Saved Model Path: ', model_path)
-
-    def augmentation(self, data, labels):
-        #print("datashape")
-        #print(data.shape)
-        N, C, D, H, W = data.shape
-
-        data_numpy = data.detach().cpu().permute(0, 2, 3, 4, 1).numpy() / 255
-        label_numpy = labels.detach().cpu().numpy()
-        augmenter = TrivialAugmentTemporal128()
-        #np.save("beforee.npy",data_numpy[0,0,:,:,:])
-        #np.save("labelbef.npy",label_numpy[0,:])
-        #print("data_numpy")
-        #print(data_numpy.shape)
-        data_numpy, labels, op, level = augmenter(data_numpy, label_numpy)
-        #np.save("aftere.npy",data_numpy[0,0,:,:,:])
-        #np.save("labelaft.npy",labels[0,:])
-        #import sys
-        #sys.exit()
-
-        #self.collect(op, level)
-        labels = torch.from_numpy(np.float32(labels).copy()).to(self.device)
-        data_stack_list = []
-        for batch_idx in range(N):
-            video_aug = data_numpy[batch_idx, :, :, :, :]
-            diff_normalize_data_part = self.diff_normalize_data(video_aug)
-            #cat_data = np.concatenate((diff_normalize_data_part, standardized_data_part), axis=3)
-            data_stack_list.append(diff_normalize_data_part)
-            #print(diff_normalize_data_part.shape)
-        data_stack = np.asarray(data_stack_list)
-        data_stack_tensor = torch.zeros([N, C, D, H, W], dtype=torch.float).to(self.device)
-        for batch_idx in range(N):
-            #print(torch.from_numpy(data_stack[batch_idx]).shape)
-            data_stack_tensor[batch_idx] = torch.from_numpy(data_stack[batch_idx]).permute(3,0,1,2).to(self.device)
-        data = data_stack_tensor
-
-        return data, labels
-
-    def diff_normalize_data(self, data):
-        """Difference frames and normalization data"""
-        normalized_len = len(data)
-        h, w, c = data[0].shape
-        normalized_data = np.zeros((normalized_len, h, w, c), dtype=np.float32)
-        normalized_data[normalized_len-1] = (data[normalized_len-1] - data[normalized_len-2]) / (
-                    data[normalized_len-1] + data[normalized_len-2] + 1e-7)
-        for j in range(normalized_len - 1):
-            normalized_data[j] = (data[j + 1] - data[j]) / (
-                    data[j + 1] + data[j] + 1e-7)
-        normalized_data = normalized_data / np.std(normalized_data)
-        normalized_data[np.isnan(normalized_data)] = 0
-        return normalized_data
