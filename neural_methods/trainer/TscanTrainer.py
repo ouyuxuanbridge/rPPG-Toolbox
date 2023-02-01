@@ -38,8 +38,6 @@ class TscanTrainer(BaseTrainer):
         self.chunk_len = config.TRAIN.DATA.PREPROCESS.CHUNK_LENGTH
         self.config = config
         self.best_epoch = 0
-        self.aug1 = config.AUG[0]
-        self.aug2 = config.AUG[1]
 
     def train(self, data_loader):
         """ TODO:Docstring"""
@@ -172,16 +170,16 @@ class TscanTrainer(BaseTrainer):
         C=2*C
         data_numpy = data.detach().cpu().permute(0,1,3,4,2).numpy()/255
         label_numpy = labels.detach().cpu().numpy()
-        augmenter = TrivialAugmentTemporal( self.aug1, self.aug2)
-        #np.save("beforeshearx_gs.npy",data_numpy[0,0,:,:,:])
-        #np.save("labelbefsheargs.npy",label_numpy[0,:])
+        augmenter = TrivialAugmentTemporal()
+        #np.save("beforee.npy",data_numpy[0,0,:,:,:])
+        #np.save("labelbef.npy",label_numpy[0,:])
         data_numpy, labels, op, level = augmenter(data_numpy, label_numpy)
-        #np.save("aftershearx_gs.npy",data_numpy[0,0,:,:,:])
-        #np.save("labelaftsheargs.npy",labels[0,:])
+        #np.save("aftere.npy",data_numpy[0,0,:,:,:])
+        #np.save("labelaft.npy",labels[0,:])
         #import sys
         #sys.exit()
 
-        #self.collect(op, level)
+        self.collect(op, level)
         labels = torch.from_numpy(np.float32(labels).copy()).to(self.device)    
         data_stack_list = []
         for batch_idx in range(N):
