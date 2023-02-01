@@ -12,7 +12,10 @@ from neural_methods.loss.NegPearsonLoss import Neg_Pearson
 from neural_methods.model.DeepPhys import DeepPhys
 from neural_methods.trainer.BaseTrainer import BaseTrainer
 from tqdm import tqdm
-
+from neural_methods.trainer.TrivialAugmentTemporal import TrivialAugmentTemporal
+from neural_methods.trainer.TrivialAugmentTemporal import *
+from neural_methods.trainer.TrivialAugment   import TrivialAugment
+from neural_methods.trainer.TrivialAugment   import *
 
 class DeepPhysTrainer(BaseTrainer):
 
@@ -50,6 +53,9 @@ class DeepPhysTrainer(BaseTrainer):
                 data, labels = batch[0].to(
                     self.device), batch[1].to(self.device)
                 N, D, C, H, W = data.shape
+                data, labels = self.augmentation(data, labels)
+
+                C = C * 2
                 data = data.view(N * D, C, H, W)
                 labels = labels.view(-1, 1)
                 self.optimizer.zero_grad()
@@ -110,7 +116,7 @@ class DeepPhysTrainer(BaseTrainer):
         if self.config.TOOLBOX_MODE == "only_test":
             if not os.path.exists(self.config.INFERENCE.MODEL_PATH):
                 raise ValueError("Inference model path error! Please check INFERENCE.MODEL_PATH in your yaml.")
-            self.model.load_state_dict(torch.load(self.config.INFERENCE.MODEL_PATH))
+            self.model.load_state_dict(torch.load(self.config.INFERENCE.MODEL_PATH, map_location='cpu'))
             print("Testing uses pretrained model!")
         else:
             best_model_path = os.path.join(
@@ -147,3 +153,56 @@ class DeepPhysTrainer(BaseTrainer):
         model_path = os.path.join(
             self.model_dir, self.model_file_name + '_Epoch' + str(index) + '.pth')
         torch.save(self.model.state_dict(), model_path)
+
+    def augmentation(self, data, labels):
+        N, D, C, H, W = data.shape
+        C = 2 * C
+        data_numpy = data.detach().cpu().permute(0, 1, 3, 4, 2).numpy() / 255
+        label_numpy = labels.detach().cpu().numpy()
+        augmenter = TrivialAugmentTemporal()
+        # np.save("beforee.npy",data_numpy[0,0,:,:,:])
+        # np.save("labelbef.npy",label_numpy[0,:])
+        data_numpy, labels, op, level = augmenter(data_numpy, label_numpy)
+        #np.save("aftere.npy",data_numpy[0,0,:,:,:])
+        #np.save("labelaft.npy",labels[0,:])
+        #import sys
+        #sys.exit()
+
+        #self.collect(op, level)
+        labels = torch.from_numpy(np.float32(labels).copy()).to(self.device)
+        data_stack_list = []
+        for batch_idx in range(N):
+            video_aug = data_numpy[batch_idx, :, :, :, :]
+            diff_normalize_data_part = self.diff_normalize_data(video_aug)
+            standardized_data_part = self.standardized_data(video_aug)
+            cat_data = np.concatenate((diff_normalize_data_part, standardized_data_part), axis=3)
+            data_stack_list.append(cat_data)
+        data_stack = np.asarray(data_stack_list)
+        data_stack_tensor = torch.zeros([N, D, C, H, W], dtype=torch.float).to(self.device)
+        for batch_idx in range(N):
+            data_stack_tensor[batch_idx] = torch.from_numpy(data_stack[batch_idx]).permute(0, 3, 1, 2).to(self.device)
+        data = data_stack_tensor
+
+        return data, labels
+
+    def diff_normalize_data(self, data):
+        """Difference frames and normalization data"""
+        normalized_len = len(data)
+        h, w, c = data[0].shape
+        normalized_data = np.zeros((normalized_len, h, w, c), dtype=np.float32)
+        normalized_data[normalized_len - 1] = (data[normalized_len - 1] - data[normalized_len - 2]) / (
+                data[normalized_len - 1] + data[normalized_len - 2] + 1e-7)
+        for j in range(normalized_len - 1):
+            normalized_data[j] = (data[j + 1] - data[j]) / (
+                    data[j + 1] + data[j] + 1e-7)
+        normalized_data = normalized_data / np.std(normalized_data)
+        normalized_data[np.isnan(normalized_data)] = 0
+        return normalized_data
+
+    def standardized_data(self, data):
+        """Difference frames and normalization data"""
+        data = np.asarray(data)
+        data = data - np.mean(data)
+        data = data / np.std(data)
+        data[np.isnan(data)] = 0
+        return data

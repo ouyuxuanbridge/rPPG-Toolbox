@@ -11,7 +11,8 @@ from dataset import data_loader
 from neural_methods import trainer
 from signal_methods.signal_predictor import signal_predict
 from torch.utils.data import DataLoader
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 RANDOM_SEED = 100
 torch.manual_seed(RANDOM_SEED)
 torch.cuda.manual_seed(RANDOM_SEED)
@@ -147,8 +148,8 @@ if __name__ == "__main__":
 
         # test_loader
         if config.TEST.DATA.DATASET == "COHFACE":
-            # test_loader = data_loader.COHFACELoader.COHFACELoader
-            raise ValueError("Unsupported dataset! Currently supporting UBFC, PURE, and SCAMPS.")
+            test_loader = data_loader.COHFACELoader.COHFACELoader
+            #raise ValueError("Unsupported dataset! Currently supporting UBFC, PURE, and SCAMPS.")
         elif config.TEST.DATA.DATASET == "UBFC":
             test_loader = data_loader.UBFCLoader.UBFCLoader
         elif config.TEST.DATA.DATASET == "PURE":

@@ -12,6 +12,11 @@ from neural_methods.loss.NegPearsonLoss import Neg_Pearson
 from neural_methods.model.EfficientPhys import EfficientPhys
 from neural_methods.trainer.BaseTrainer import BaseTrainer
 from tqdm import tqdm
+from neural_methods.trainer.TrivialAugmentTemporal import TrivialAugmentTemporal
+from neural_methods.trainer.TrivialAugmentTemporal import *
+from neural_methods.trainer.TrivialAugment   import TrivialAugment
+from neural_methods.trainer.TrivialAugment   import *
+opn=np.zeros((11,5))
 
 
 class EfficientPhysTrainer(BaseTrainer):
@@ -54,6 +59,9 @@ class EfficientPhysTrainer(BaseTrainer):
                 data, labels = batch[0].to(
                     self.device), batch[1].to(self.device)
                 N, D, C, H, W = data.shape
+
+                data, labels = self.augmentation(data, labels)
+
                 data = data.view(N * D, C, H, W)
                 labels = labels.view(-1, 1)
                 data = data[:(N * D) // self.base_len * self.base_len]
@@ -165,3 +173,226 @@ class EfficientPhysTrainer(BaseTrainer):
             self.model_dir, self.model_file_name + '_Epoch' + str(index) + '.pth')
         torch.save(self.model.state_dict(), model_path)
         print('Saved Model Path: ', model_path)
+
+    def augmentation(self, data, labels):
+        N, D, C, H, W = data.shape
+    
+        data_numpy = data.detach().cpu().permute(0, 1, 3, 4, 2).numpy() / 255
+        label_numpy = labels.detach().cpu().numpy()
+        augmenter = TrivialAugmentTemporal()
+        # np.save("beforeshearx_gs.npy",data_numpy[0,0,:,:,:])
+        # np.save("labelbefsheargs.npy",label_numpy[0,:])
+        data_numpy, labels, op, level = augmenter(data_numpy, label_numpy)
+        #inp.save("aftershearx_gs.npy",data_numpy[0,0,:,:,:])
+        #np.save("labelaftsheargs.npy",labels[0,:])
+        #import sys
+        #sys.exit()
+
+        # self.collect(op, level)
+        labels = torch.from_numpy(np.float32(labels).copy()).to(self.device)
+        data_stack_list = []
+        for batch_idx in range(N):
+            video_aug = data_numpy[batch_idx, :, :, :, :]
+            standardized_data_part = self.standardized_data(video_aug)
+            data_stack_list.append(standardized_data_part)
+        data_stack = np.asarray(data_stack_list)
+        data_stack_tensor = torch.zeros([N, D, C, H, W], dtype=torch.float).to(self.device)
+        for batch_idx in range(N):
+            data_stack_tensor[batch_idx] = torch.from_numpy(data_stack[batch_idx]).permute(0, 3, 1, 2).to(self.device)
+        data = data_stack_tensor
+
+        return data, labels
+
+    def diff_normalize_data(self, data):
+        """Difference frames and normalization data"""
+        normalized_len = len(data)
+        h, w, c = data[0].shape
+        normalized_data = np.zeros((normalized_len, h, w, c), dtype=np.float32)
+        normalized_data[normalized_len - 1] = (data[normalized_len - 1] - data[normalized_len - 2]) / (
+                data[normalized_len - 1] + data[normalized_len - 2] + 1e-7)
+        for j in range(normalized_len - 1):
+            normalized_data[j] = (data[j + 1] - data[j]) / (
+                    data[j + 1] + data[j] + 1e-7)
+        normalized_data = normalized_data / np.std(normalized_data)
+        normalized_data[np.isnan(normalized_data)] = 0
+        return normalized_data
+
+    def standardized_data(self, data):
+        """Difference frames and normalization data"""
+        data = np.asarray(data)
+        data = data - np.mean(data)
+        data = data / np.std(data)
+        data[np.isnan(data)] = 0
+        return data
+
+    def collect(self, op, level):
+
+        # opn = np.zeros((2, 5), int)
+        if op == gaussianlabel:
+            if level == 0:
+                opn[0][0] = opn[0][0] + 1
+            elif level == 1:
+                opn[0][1] = opn[0][1] + 1
+            elif level == 2:
+                opn[0][2] = opn[0][2] + 1
+            elif level == 3:
+                opn[0][3] = opn[0][3] + 1
+            elif level == 4:
+                opn[0][4] = opn[0][4] + 1
+            else:
+                print("error")
+
+        elif op == labelwarping:
+            if level == 0:
+                opn[1][0] = opn[1][0] + 1
+            elif level == 1:
+                opn[1][1] = opn[1][1] + 1
+            elif level == 2:
+                opn[1][2] = opn[1][2] + 1
+            elif level == 3:
+                opn[1][3] = opn[1][3] + 1
+            elif level == 4:
+                opn[1][4] = opn[1][4] + 1
+            else:
+                print("error")
+
+        elif op == scaling:
+            if level == 0:
+                opn[2][0] = opn[2][0] + 1
+            elif level == 1:
+                opn[2][1] = opn[2][1] + 1
+            elif level == 2:
+                opn[2][2] = opn[2][2] + 1
+            elif level == 3:
+                opn[2][3] = opn[2][3] + 1
+            elif level == 4:
+                opn[2][4] = opn[2][4] + 1
+            else:
+                print("error")
+
+        elif op == translate_y:
+            if level == 0:
+                opn[3][0] = opn[3][0] + 1
+            elif level == 1:
+                opn[3][1] = opn[3][1] + 1
+            elif level == 2:
+                opn[3][2] = opn[3][2] + 1
+            elif level == 3:
+                opn[3][3] = opn[3][3] + 1
+            elif level == 4:
+                opn[3][4] = opn[3][4] + 1
+            else:
+                print("error")
+
+        elif op == rotate:
+            if level == 0:
+                opn[4][0] = opn[4][0] + 1
+            elif level == 1:
+                opn[4][1] = opn[4][1] + 1
+            elif level == 2:
+                opn[4][2] = opn[4][2] + 1
+            elif level == 3:
+                opn[4][3] = opn[4][3] + 1
+            elif level == 4:
+                opn[4][4] = opn[4][4] + 1
+            else:
+                print("error")
+        elif op == flip_lr:
+            if level == 0:
+                opn[5][0] = opn[5][0] + 1
+            elif level == 1:
+                opn[5][1] = opn[5][1] + 1
+            elif level == 2:
+                opn[5][2] = opn[5][2] + 1
+            elif level == 3:
+                opn[5][3] = opn[5][3] + 1
+            elif level == 4:
+                opn[6][4] = opn[6][4] + 1
+            else:
+                print("error")
+
+        elif op == lowfreqnoise:
+            if level == 0:
+                opn[6][0] = opn[6][0] + 1
+            elif level == 1:
+                opn[6][1] = opn[6][1] + 1
+            elif level == 2:
+                opn[6][2] = opn[6][2] + 1
+            elif level == 3:
+                opn[6][3] = opn[6][3] + 1
+            elif level == 4:
+                opn[6][4] = opn[6][4] + 1
+            else:
+                print("error")
+
+        elif op == videonoise:
+            if level == 0:
+                opn[7][0] = opn[7][0] + 1
+            elif level == 1:
+                opn[7][1] = opn[7][1] + 1
+            elif level == 2:
+                opn[7][2] = opn[7][2] + 1
+            elif level == 3:
+                opn[7][3] = opn[7][3] + 1
+            elif level == 4:
+                opn[7][4] = opn[7][4] + 1
+            else:
+                print("error")
+        elif op == videonoise:
+            if level == 0:
+                opn[7][0] = opn[7][0] + 1
+            elif level == 1:
+                opn[7][1] = opn[7][1] + 1
+            elif level == 2:
+                opn[7][2] = opn[7][2] + 1
+            elif level == 3:
+                opn[7][3] = opn[7][3] + 1
+            elif level == 4:
+                opn[7][4] = opn[7][4] + 1
+            else:
+                print("error")
+
+        elif op == shear_x:
+            if level == 0:
+                opn[8][0] = opn[8][0] + 1
+            elif level == 1:
+                opn[8][1] = opn[8][1] + 1
+            elif level == 2:
+                opn[8][2] = opn[8][2] + 1
+            elif level == 3:
+                opn[8][3] = opn[8][3] + 1
+            elif level == 4:
+                opn[8][4] = opn[8][4] + 1
+            else:
+                print("error")
+        elif op == shear_y:
+            if level == 0:
+                opn[9][0] = opn[9][0] + 1
+            elif level == 1:
+                opn[9][1] = opn[9][1] + 1
+            elif level == 2:
+                opn[9][2] = opn[9][2] + 1
+            elif level == 3:
+                opn[9][3] = opn[9][3] + 1
+            elif level == 4:
+                opn[9][4] = opn[9][4] + 1
+            else:
+                print("error")
+        elif op == shear_y:
+            if level == 0:
+                opn[10][0] = opn[10][0] + 1
+            elif level == 1:
+                opn[10][1] = opn[10][1] + 1
+            elif level == 2:
+                opn[10][2] = opn[10][2] + 1
+            elif level == 3:
+                opn[10][3] = opn[10][3] + 1
+            elif level == 4:
+                opn[10][4] = opn[10][4] + 1
+            else:
+                print("error")
+
+
+
+
+
